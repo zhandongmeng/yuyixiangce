@@ -1,0 +1,16 @@
+# 运行依赖（从源码跑 / 打绿色包都只要这些）
+fastapi>=0.110
+uvicorn>=0.27
+numpy>=1.26
+Pillow>=10.0
+pillow-heif>=0.13
+
+# 独显加速。装不上、或机器没有 D3D12 设备时，app/ort_loader.py 会自动
+# 退到真机自带的纯 CPU 版 onnxruntime（打包时放在 _internal/ort_cpu）。
+# 想强制 CPU：set AIWIN_ORT=cpu
+onnxruntime-directml>=1.18
+
+# 语音转视频/音频搜索（faster-whisper tiny）
+faster-whisper>=1.0
+tokenizers>=0.15
+av>=12.0

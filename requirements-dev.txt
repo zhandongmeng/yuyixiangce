@@ -1,0 +1,14 @@
+# 开发/打包依赖。运行程序本身不需要这些。
+-r requirements.txt
+
+# 导出 ONNX 模型（tools/export_clip.py）
+torch>=2.2
+transformers>=4.40
+onnx>=1.16
+onnxscript>=0.1
+
+# 打 exe / 安装包（tools/build.py、tools/build_installer.py）
+pyinstaller>=6.10
+
+# tools/pull_face.py 从别的机器拉模型
+paramiko>=3.4

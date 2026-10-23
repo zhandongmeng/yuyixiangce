@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>语义相册</title>
+<style>
+/* ============================ 设计变量 ============================ */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel2:#f1f3f7; --line:#e6e9ef;
+  --txt:#111827; --dim:#6b7280; --faint:#9aa3b2;
+  --acc:#2563eb; --acc2:#7c3aed; --ok:#059669; --warn:#b45309; --danger:#dc2626;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 10px 30px rgba(16,24,40,.07);
+  --shadow-lg:0 20px 60px rgba(16,24,40,.18);
+  --r:16px; --r-sm:10px; --bar:60px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0c0f15; --panel:#141922; --panel2:#1a2130; --line:#242c3b;
+    --txt:#e9edf6; --dim:#8d96aa; --faint:#6f788a;
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px rgba(0,0,0,.35);
+    --shadow-lg:0 24px 70px rgba(0,0,0,.6);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--txt);
+  font:15px/1.55 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{display:block}
+::selection{background:rgba(37,99,235,.22)}
+
+/* ============================ 顶栏 ============================ */
+#bar{
+  position:sticky; top:0; z-index:40; height:var(--bar);
+  display:flex; align-items:center; gap:6px; padding:0 22px;
+  background:color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter:saturate(1.6) blur(16px); -webkit-backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15.5px;letter-spacing:.2px;
+  white-space:nowrap;margin-right:14px}
+.brand .dot{width:22px;height:22px;border-radius:7px;
+  background:linear-gradient(135deg,#2563eb,#7c3aed);
+  box-shadow:0 3px 10px rgba(37,99,235,.35);position:relative;flex:none}
+.brand .dot:after{content:"";position:absolute;inset:6px;border:2px solid #fff;border-radius:2.5px;opacity:.92}
+#tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar{display:none}
+#tabs a{
+  position:relative;padding:8px 13px;border-radius:9px;color:var(--dim);
+  text-decoration:none;font-size:14px;white-space:nowrap;transition:.15s;
+}
+#tabs a:hover{background:var(--panel2);color:var(--txt)}
+#tabs a.on{color:var(--acc);font-weight:600;background:color-mix(in srgb,var(--acc) 10%,transparent)}
+#tabs a .cnt{font-size:11px;color:var(--faint);margin-left:4px;font-weight:500}
+.grow{flex:1}
+.tbtn{
+  height:36px;padding:0 13px;border-radius:10px;display:flex;align-items:center;gap:7px;
+  color:var(--txt);font-size:13.5px;border:1px solid transparent;transition:.15s;
+}
+.tbtn:hover{background:var(--panel2)}
+.tbtn.ghost{border-color:var(--line)}
+.tbtn.primary{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;
+  box-shadow:0 6px 16px rgba(37,99,235,.28)}
+.tbtn svg{width:16px;height:16px;flex:none}
+.tbtn.on{background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc);
+  border-color:color-mix(in srgb,var(--acc) 34%,transparent)}
+.tbtn.on svg{color:var(--acc)}
+.tbtn .tiny{font-size:11px;color:var(--faint)}
+#bar .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--dim)}
+#bar .ico:hover{background:var(--panel2);color:var(--txt)}
+#bar .ico.on{background:var(--panel2);color:var(--acc)}
+
+/* 进度细线 */
+#pbar{position:fixed;top:var(--bar);left:0;right:0;height:2px;z-index:39;background:transparent;overflow:hidden}
+#pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2563eb,#7c3aed,#60a5fa);
+  transition:width .4s;box-shadow:0 0 8px rgba(37,99,235,.6)}
+#pbar.run i{width:35%;animation:slide 1.4s ease-in-out infinite}
+@keyframes slide{0%{margin-left:-35%}100%{margin-left:100%}}
+
+/* ============================ 主体 ============================ */
+main{padding:0 22px 90px;min-height:calc(100vh - var(--bar))}
+.pagehead{display:flex;align-items:flex-end;gap:14px;padding:26px 2px 16px;flex-wrap:wrap}
+.pagehead h1{margin:0;font-size:26px;letter-spacing:-.4px;font-weight:700}
+.pagehead .meta{color:var(--dim);font-size:13px;padding-bottom:3px}
+.pagehead .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* 月份分组 */
+.msec{margin-bottom:6px}
+.mhead{
+  display:flex;align-items:baseline;gap:10px;padding:20px 2px 10px;
+  font-size:15px;font-weight:700;color:var(--txt);position:sticky;top:var(--bar);z-index:5;
+  background:linear-gradient(var(--bg) 68%,transparent);
+}
+.mhead .n{font-size:12px;font-weight:500;color:var(--faint)}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:10px}
+.wall.big{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.morewrap{display:flex;justify-content:center;padding:26px 0 18px}
+
+/* 照片卡 */
+.ph{
+  position:relative;aspect-ratio:1;border-radius:var(--r-sm);overflow:hidden;
+  background:var(--panel2);display:block;padding:0;isolation:isolate;
+  transition:transform .18s, box-shadow .18s;
+}
+.ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .35s}
+.ph:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.ph:hover img{transform:scale(1.045)}
+.ph .tag{
+  position:absolute;font-size:11px;padding:2px 7px;border-radius:6px;
+  background:rgba(8,12,20,.62);color:#fff;backdrop-filter:blur(4px);line-height:1.5;
+}
+.ph .k{left:7px;top:7px;display:flex;gap:4px;align-items:center}
+.ph .d{right:7px;bottom:7px}
+.ph .s{right:7px;top:7px;background:linear-gradient(135deg,#2563eb,#7c3aed);font-weight:600}
+.ph .hover{
+  position:absolute;inset:auto 0 0 0;padding:26px 9px 8px;color:#fff;font-size:11.5px;
+  background:linear-gradient(transparent,rgba(0,0,0,.68));opacity:0;transition:.2s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
+}
+.ph:hover .hover{opacity:1}
+
+/* 分类卡（分组封面） */
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:14px}
+/* 时刻卡片信息密度高（日期+地点），给宽一点、标题允许两行 */
+.groups.wide{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.gc{
+  position:relative;border-radius:var(--r);overflow:hidden;background:var(--panel);
+  border:1px solid var(--line);transition:.18s;text-align:left;padding:0;
+  box-shadow:var(--shadow);
+}
+.gc:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:transparent}
+.gc .cover{aspect-ratio:1;width:100%;background:var(--panel2);overflow:hidden}
+.gc .cover img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.gc:hover .cover img{transform:scale(1.05)}
+.gc .cap{padding:10px 12px 12px}
+.gc .nm{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc .ct{font-size:12px;color:var(--dim);margin-top:2px}
+.gc.person .cover{border-radius:50%;width:132px;margin:16px auto 4px}
+.gc.person{padding-top:4px}
+.gc.person .cap{text-align:center}
+/* 时刻卡片：横构图更像"一次活动"，方图会把合影裁得莫名其妙 */
+.gc.event .cover{aspect-ratio:16/10}
+.gc.event .nm{
+  white-space:normal;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;line-height:1.35
+}
+.gc .acts{position:absolute;right:8px;top:8px;display:flex;gap:5px;opacity:0;transition:.15s;z-index:2}
+.gc:hover .acts{opacity:1}
+.gc .acts button{
+  font-size:11px;padding:4px 9px;border-radius:7px;background:rgba(10,14,22,.72);
+  color:#fff;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18)
+}
+.gc .acts button:hover{background:var(--acc)}
+.gc .acts button.danger:hover{background:var(--danger)}
+
+/* ---- 人像分组：每张卡的「不是他」 ---- */
+.ph .fix{
+  position:absolute;left:8px;top:8px;z-index:3;
+  font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;
+  background:rgba(10,14,22,.66);color:#fff;border:1px solid rgba(255,255,255,.22);
+  cursor:pointer;opacity:.72;transition:.15s;backdrop-filter:blur(6px);
+  display:flex;align-items:center;gap:4px;white-space:nowrap
+}
+/* 常显一半透明：触屏没有 hover，藏起来等于没有这个按钮 */
+.ph:hover .fix{opacity:1}
+.ph .fix:hover{background:var(--danger);border-color:transparent;opacity:1}
+@media (hover:none){ .ph .fix{opacity:.92} }
+.ph .fcnt{
+  position:absolute;left:8px;bottom:8px;z-index:2;font-size:11px;padding:2px 7px;
+  border-radius:999px;background:rgba(10,14,22,.7);color:#fff
+}
+
+/* ---- 其他面孔（脸太少、没单独成人的那些） ---- */
+.loosehint{
+  font-size:13px;line-height:1.7;color:var(--dim);margin:-4px 0 16px;max-width:760px
+}
+.facegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+.fcell{
+  position:relative;padding:0;border:1px solid var(--line);background:var(--panel2);
+  border-radius:16px;overflow:hidden;cursor:pointer;aspect-ratio:1;transition:.16s
+}
+.fcell:hover{transform:translateY(-2px);border-color:var(--acc)}
+.fcell img{width:100%;height:100%;object-fit:cover;transition:transform .25s}
+.fcell:hover img{transform:scale(1.06)}
+.fcell .fdel{
+  position:absolute;right:6px;top:6px;width:21px;height:21px;border-radius:50%;
+  background:rgba(10,14,22,.62);color:#fff;font-style:normal;font-size:11px;
+  display:flex;align-items:center;justify-content:center;opacity:.7;
+  border:1px solid rgba(255,255,255,.2);transition:.15s
+}
+.fcell .fdel:hover{background:var(--danger);border-color:transparent;opacity:1}
+@media (hover:none){ .fcell .fdel{opacity:.9} }
+
+/* ---- 重复照片 ---- */
+#dupMask{
+  position:fixed;inset:0;z-index:70;background:rgba(6,9,14,.62);
+  backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.18s
+}
+#dupMask.on{opacity:1;pointer-events:auto}
+#dup{
+  position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);
+  width:min(900px,94vw);max-height:84vh;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.18s
+}
+#dup.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.dupbody{padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.dupg{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2)}
+.duprow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.duprow img{width:92px;height:92px;object-fit:cover;border-radius:9px;flex:0 0 auto}
+.duprow img.keep{outline:2.5px solid var(--acc);outline-offset:-2px}
+.dupmeta{font-size:12px;color:var(--dim);margin-top:7px;display:flex;gap:12px}
+
+/* ---- 人物选择器 ---- */
+#pkMask{
+  position:fixed;inset:0;z-index:70;background:rgba(6,9,14,.62);
+  backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.18s
+}
+#pkMask.on{opacity:1;pointer-events:auto}
+#pk{
+  position:fixed;z-index:71;left:50%;top:50%;transform:translate(-50%,-46%) scale(.97);
+  width:min(760px,92vw);max-height:82vh;display:flex;flex-direction:column;
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  box-shadow:0 24px 70px rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.18s
+}
+#pk.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.pkhead{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.pkhead h3{margin:0;font-size:15px;font-weight:650}
+.pkbody{padding:14px 18px;overflow:auto;display:grid;gap:10px;
+  grid-template-columns:repeat(auto-fill,minmax(126px,1fr))}
+.pkitem{
+  border:1px solid var(--line);background:transparent;border-radius:14px;padding:10px 8px;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:7px;transition:.15s
+}
+.pkitem:hover{border-color:var(--acc);transform:translateY(-2px)}
+.pkitem.cur{opacity:.42;pointer-events:none}
+.pkitem img{width:64px;height:64px;border-radius:50%;object-fit:cover;background:var(--line)}
+.pkitem .nm{font-size:12.5px;font-weight:600;max-width:100%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.pkitem .ct{font-size:11px;color:var(--dim)}
+.pkfoot{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+
+/* 空状态 */
+.empty{
+  margin:44px auto;max-width:520px;text-align:center;color:var(--dim);
+  background:var(--panel);border:1px solid var(--line);border-radius:20px;
+  padding:38px 30px;box-shadow:var(--shadow)
+}
+.empty .big{font-size:38px;margin-bottom:12px;opacity:.9}
+.empty h3{margin:0 0 8px;color:var(--txt);font-size:17px}
+.empty p{margin:0 0 18px;font-size:13.5px;line-height:1.7}
+.empty .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+
+/* 骨架 */
+.skel{display:grid;grid-template-columns:repeat(auto-fill,minmax(172px,1fr));gap:10px;padding-top:16px}
+.skel i{display:block;aspect-ratio:1;border-radius:var(--r-sm);
+  background:linear-gradient(100deg,var(--panel2) 30%,var(--line) 50%,var(--panel2) 70%);
+  background-size:200% 100%;animation:shimmer 1.3s infinite}
+@keyframes shimmer{to{background-position:-200% 0}}
+.loader{display:inline-block;width:13px;height:13px;border:2px solid var(--acc);
+  border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;
+  vertical-align:-2px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============================ 搜索浮层 ============================ */
+#sMask{position:fixed;inset:var(--bar) 0 0;background:rgba(10,14,22,.28);z-index:30;
+  opacity:0;pointer-events:none;transition:.18s}
+#sMask.on{opacity:1;pointer-events:auto}
+#sPanel{
+  position:fixed;left:50%;top:calc(var(--bar) + 14px);transform:translate(-50%,-8px) scale(.985);
+  width:min(780px,calc(100vw - 40px));z-index:31;background:var(--panel);
+  border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);
+  padding:14px;opacity:0;pointer-events:none;transition:.2s
+}
+#sPanel.on{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+.srow{display:flex;gap:8px;align-items:center}
+#q{
+  flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--txt);font-size:15px;padding:0 16px;outline:0;transition:.15s;min-width:0
+}
+#q:focus{border-color:var(--acc);background:var(--panel);box-shadow:0 0 0 4px rgba(37,99,235,.1)}
+.sbtn{height:46px;padding:0 16px;border-radius:12px;border:1px solid var(--line);
+  background:var(--panel2);font-size:13.5px;white-space:nowrap;transition:.15s}
+.sbtn:hover{border-color:var(--acc);color:var(--acc)}
+.sbtn.rec{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.6}}
+.sbtn.go{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:0;font-weight:600;
+  padding:0 22px;box-shadow:0 6px 18px rgba(37,99,235,.3)}
+.chips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.chips.hist{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.chip{font-size:12.5px;padding:5px 12px;border-radius:20px;border:1px solid var(--line);
+  color:var(--dim);background:transparent}
+.chip.on{background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc);
+  border-color:transparent;font-weight:600}
+.chip:hover{color:var(--txt)}
+.shint{margin-top:10px;font-size:12.5px;color:var(--faint);min-height:18px}
+.kbd{font:11px ui-monospace,Consolas,monospace;border:1px solid var(--line);border-bottom-width:2px;
+  border-radius:5px;padding:1px 5px;color:var(--dim)}
+
+/* 搜索结果的说明条 */
+.qbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;
+  padding:12px 16px;margin:18px 0 4px;box-shadow:var(--shadow)}
+.qbar b{font-size:15px}
+.qbar .m{color:var(--dim);font-size:12.5px}
+
+/* ============================ 灯箱 ============================ */
+#lb{position:fixed;inset:0;z-index:60;background:rgba(6,9,15,.94);
+  display:none;flex-direction:column;color:#fff}
+#lb.on{display:flex;animation:fade .18s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.lb-top{display:flex;align-items:center;gap:12px;padding:12px 16px;flex:none}
+.lb-top .nm{font-size:13.5px;color:#e6ebf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-top .idx{font-size:12px;color:#96a0b5}
+.lb-top .sp{flex:1}
+.lb-act{height:34px;padding:0 12px;border-radius:9px;background:rgba(255,255,255,.08);
+  color:#e9edf6;font-size:12.5px;border:1px solid rgba(255,255,255,.1)}
+.lb-act:hover{background:rgba(255,255,255,.18)}
+.lb-act.danger:hover{background:rgba(220,38,38,.9);border-color:transparent}
+.lb-stage{flex:1;display:grid;place-items:center;position:relative;min-height:0;padding:0 64px}
+.lb-stage img,.lb-stage video{max-width:100%;max-height:calc(100vh - 210px);object-fit:contain;
+  border-radius:6px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.lb-stage audio{width:min(520px,80vw)}
+.lb-stage .audiowrap{text-align:center}
+.lb-stage .audiowrap img{max-height:38vh;margin:0 auto 20px;border-radius:10px}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;
+  border-radius:12px;background:rgba(255,255,255,.07);display:grid;place-items:center;
+  color:#fff;font-size:20px}
+.lb-nav:hover{background:rgba(255,255,255,.18)}
+.lb-nav.l{left:12px} .lb-nav.r{right:12px}
+.lb-info{
+  flex:none;display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;
+  padding:14px 20px 18px;border-top:1px solid rgba(255,255,255,.08);
+  background:rgba(10,14,22,.5);max-height:34vh;overflow:auto
+}
+.lb-info .col{min-width:150px}
+.lb-info .k{font-size:11px;color:#8b94a7;letter-spacing:.3px;margin-bottom:3px}
+.lb-info .v{font-size:13px;color:#e9edf6;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lb-info .v .pill{font-size:11.5px;padding:2px 9px;border-radius:20px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.08)}
+.lb-info .note{max-width:420px;color:#c7d0e2;font-size:12.5px;line-height:1.6}
+
+/* ============================ 侧边抽屉 ============================ */
+#dMask{position:fixed;inset:0;background:rgba(10,14,22,.32);z-index:45;
+  opacity:0;pointer-events:none;transition:.2s}
+#dMask.on{opacity:1;pointer-events:auto}
+#drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(430px,92vw);z-index:46;
+  background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow-lg);
+  transform:translateX(102%);transition:transform .26s cubic-bezier(.22,.8,.3,1);
+  display:flex;flex-direction:column
+}
+#drawer.on{transform:none}
+.dhead{display:flex;align-items:center;padding:18px 20px 12px;flex:none}
+.dhead h3{margin:0;font-size:16px}
+.dbody{flex:1;overflow:auto;padding:0 20px 30px}
+.dsec{border-top:1px solid var(--line);padding:16px 0}
+.dsec:first-child{border:0}
+.dsec h4{margin:0 0 10px;font-size:12px;color:var(--dim);letter-spacing:.4px;text-transform:uppercase}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0}
+.kv .k{color:var(--dim)}
+.kv .v{text-align:right;word-break:break-all}
+.frow{display:flex;gap:8px}
+.frow input{flex:1;height:38px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel2);color:var(--txt);padding:0 11px;font-size:13px;outline:0;min-width:0}
+.frow input:focus{border-color:var(--acc)}
+.btn{height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel2);font-size:13px;white-space:nowrap;transition:.15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.pri{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:0;font-weight:600}
+.btn.pri:hover{filter:brightness(1.08);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{height:32px;padding:0 11px;font-size:12px}
+.fitem{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;
+  background:var(--panel2);margin-bottom:6px;font-size:12.5px}
+.fitem .p{flex:1;word-break:break-all;color:var(--txt)}
+.fitem button{color:var(--dim);font-size:12px}
+.fitem button:hover{color:var(--danger)}
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.quick button{font-size:11.5px;padding:4px 9px;border-radius:7px;border:1px dashed var(--line);color:var(--dim)}
+.quick button:hover{color:var(--acc);border-color:var(--acc)}
+.bar2{height:6px;border-radius:4px;background:var(--panel2);overflow:hidden;margin:8px 0}
+.bar2 i{display:block;height:100%;width:0;border-radius:4px;
+  background:linear-gradient(90deg,#2563eb,#7c3aed);transition:width .3s}
+.log{font:11.5px/1.65 ui-monospace,Consolas,monospace;color:var(--dim);
+  max-height:120px;overflow:auto;white-space:pre-wrap;margin-top:6px}
+
+/* ============================ toast / 确认框 ============================ */
+#toast{position:fixed;left:50%;bottom:34px;transform:translate(-50%,20px);z-index:80;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+#toast div{
+  background:rgba(17,24,39,.94);color:#fff;font-size:13px;padding:10px 18px;border-radius:12px;
+  box-shadow:var(--shadow-lg);animation:tin .22s;backdrop-filter:blur(8px);max-width:80vw
+}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#cfMask{position:fixed;inset:0;z-index:70;background:rgba(10,14,22,.4);
+  display:none;place-items:center;padding:20px}
+#cfMask.on{display:grid}
+#cf{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:min(420px,100%);
+  padding:22px;box-shadow:var(--shadow-lg);animation:tin .18s}
+#cf h3{margin:0 0 8px;font-size:16px}
+#cf p{margin:0 0 18px;font-size:13.5px;color:var(--dim);white-space:pre-wrap;line-height:1.65}
+#cf .row{display:flex;gap:10px;justify-content:flex-end}
+.dangerbtn{background:var(--danger);color:#fff;border:0;font-weight:600}
+.dangerbtn:hover{filter:brightness(1.08);color:#fff}
+
+/* ============================ 响应式 ============================ */
+@media (max-width: 860px){
+  #bar{padding:0 12px;gap:2px}
+  .brand{margin-right:6px}
+  .brand span.t{display:none}
+  main{padding:0 12px 80px}
+  .wall,.wall.big{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:6px}
+  .groups{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+  .pagehead h1{font-size:21px}
+  .lb-stage{padding:0}
+  .lb-nav{width:38px;height:52px}
+  .qbar{padding:10px 12px}
+  #sPanel{top:calc(var(--bar) + 8px);width:calc(100vw - 16px)}
+}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <div class="brand"><i class="dot"></i><span class="t">语义相册</span></div>
+  <nav id="tabs">
+    <a href="#/photos" data-v="photos">照片</a>
+    <a href="#/moments" data-v="moments">时刻<span class="cnt" id="cMoments"></span></a>
+    <a href="#/people" data-v="people">人像<span class="cnt" id="cPeople"></span></a>
+    <a href="#/city"  data-v="city">城市<span class="cnt" id="cCity"></span></a>
+    <a href="#/place" data-v="place">场景<span class="cnt" id="cPlace"></span></a>
+    <a href="#/thing" data-v="thing">事物<span class="cnt" id="cThing"></span></a>
+  </nav>
+  <div class="grow"></div>
+  <button class="tbtn ghost" id="btnSearch">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <span>搜索</span>
+  </button>
+  <button class="ico" id="btnMore" title="目录与索引">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+  </button>
+</header>
+<div id="pbar"><i></i></div>
+
+<main id="main"></main>
+
+<!-- 搜索浮层 -->
+<div id="sMask"></div>
+<div id="sPanel">
+  <div class="srow">
+    <input id="q" placeholder="描述你想找的画面，例如：海边的日落 / 生日蛋糕 / 猫" autocomplete="off">
+    <button class="sbtn" id="btnMic" title="点一下开始录音，再点结束">🎤</button>
+    <button class="sbtn" id="btnImg" title="上传一张图，找相似画面">以图搜图</button>
+    <button class="sbtn go" id="btnGo">搜索</button>
+  </div>
+  <input type="file" id="file" accept="image/*" hidden>
+  <div class="chips" id="kindChips">
+    <button class="chip on" data-k="all">全部</button>
+    <button class="chip" data-k="image">照片</button>
+    <button class="chip" data-k="video">视频</button>
+    <button class="chip" data-k="audio">音频</button>
+    <span class="grow"></span>
+    <span class="shint" id="sHint" style="margin:0">按 <span class="kbd">Enter</span> 搜索 · <span class="kbd">Esc</span> 关闭</span>
+  </div>
+  <div class="chips hist" id="qHist" style="display:none"></div>
+</div>
+
+<!-- 灯箱 -->
+<div id="lb">
+  <div class="lb-top">
+    <span class="nm" id="lbName"></span>
+    <span class="idx" id="lbIdx"></span>
+    <span class="sp"></span>
+    <button class="lb-act" id="lbSim">找相似</button>
+    <button class="lb-act" id="lbNotHim" style="display:none">✕ 不是他</button>
+    <a class="lb-act" id="lbOpen" href="#" target="_blank" rel="noopener">打开原文件</a>
+    <button class="lb-act" id="lbDl">另存为</button>
+    <button class="lb-act danger" id="lbDel">删除</button>
+    <button class="lb-act" id="lbClose">✕ 关闭</button>
+  </div>
+  <div class="lb-stage" id="lbStage">
+    <button class="lb-nav l" id="lbPrev">‹</button>
+    <div id="lbMedia" style="display:contents"></div>
+    <button class="lb-nav r" id="lbNext">›</button>
+  </div>
+  <div class="lb-info" id="lbInfo"></div>
+</div>
+
+<!-- 抽屉 -->
+<div id="dMask"></div>
+<aside id="drawer">
+  <div class="dhead">
+    <h3>目录与索引</h3>
+    <span class="grow"></span>
+    <button class="btn sm" id="dClose">关闭</button>
+  </div>
+  <div class="dbody">
+    <div class="dsec">
+      <h4>状态</h4>
+      <div class="kv"><span class="k">模型</span><span class="v" id="dModel">加载中…</span></div>
+      <div class="kv"><span class="k">已索引</span><span class="v" id="dIdx">0</span></div>
+      <div class="kv"><span class="k">自动更新</span><span class="v" id="dAuto">—</span></div>
+    </div>
+
+    <div class="dsec">
+      <h4>照片文件夹</h4>
+      <div class="frow">
+        <input id="fInput" placeholder="粘贴路径，如 E:\相册\相机照片">
+        <button class="btn pri" id="fAdd">添加</button>
+      </div>
+      <div class="quick" id="fQuick"></div>
+      <div id="fList"></div>
+    </div>
+
+    <div class="dsec">
+      <h4>建索引</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn pri" id="dIndex">建立索引</button>
+        <button class="btn" id="dStop">停止</button>
+      </div>
+      <div class="bar2"><i id="dBar"></i></div>
+      <div class="log" id="dLog"></div>
+    </div>
+
+    <div class="dsec">
+      <h4>智慧相册</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="dQuick">更新标签 + 城市</button>
+        <button class="btn" id="dBuild">全部重建（重扫人脸）</button>
+        <button class="btn" id="dCluster">重新合并人脸</button>
+        <button class="btn" id="dDups">查找重复照片</button>
+      </div>
+      <div class="log" id="dAlbumLog"></div>
+    </div>
+
+    <div class="dsec">
+      <h4>应用</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="dLog">打开日志</button>
+        <button class="btn" id="dReload">重新打开界面</button>
+        <button class="btn dangerbtn" id="dQuit">退出语义相册</button>
+      </div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.7;opacity:.62">
+        关掉程序窗口，后台进程会一起退出（离线索引、自动更新也随之停止）。
+        这里点「退出语义相册」效果一样，用于窗口关不掉或从手机浏览器打开的情况。
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="toast"></div>
+
+<!-- 人物选择器：手动纠正分组时用 -->
+<div id="pkMask"></div>
+<div id="pk">
+  <div class="pkhead">
+    <h3 id="pkTitle">这张脸属于谁？</h3>
+    <span class="grow"></span>
+    <button class="btn sm" id="pkClose">取消</button>
+  </div>
+  <div class="pkbody" id="pkList"></div>
+  <div class="pkfoot">
+    <button class="btn" id="pkNew">都不是 · 单独新建一组</button>
+    <button class="btn" id="pkHide">这些不是人 · 别出现在人像里</button>
+  </div>
+</div>
+<div id="cfMask"><div id="cf">
+  <h3 id="cfTitle">确认</h3>
+  <p id="cfText"></p>
+  <div class="row"><button class="btn" id="cfNo">取消</button><button class="btn dangerbtn" id="cfYes">确定</button></div>
+</div></div>
+
+<!-- 重复照片 -->
+<div id="dupMask"></div>
+<div id="dup">
+  <div class="pkhead">
+    <div>
+      <h3>重复照片</h3>
+      <p class="sub" id="dupSub" style="margin:2px 0 0">正在扫描…</p>
+    </div>
+    <span class="grow"></span>
+    <button class="btn sm" id="dupClose">关闭</button>
+  </div>
+  <div class="dupbody" id="dupList"></div>
+  <div class="pkfoot">
+    <span class="grow"></span>
+    <button class="btn dangerbtn" id="dupClean">每组留一张，其余移到回收站</button>
+  </div>
+</div>
+
+<script>
+/* ==================== 基础设施 ==================== */
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const api = async (u, opt) => {
+  // 两道兜底：连不上（服务在重启/已退出）和返回的不是 JSON（路由 500 的 HTML）。
+  // 以前 fetch 那步没包 try，服务一断所有调用都变成未捕获的 Promise rejection，
+  // 界面上什么都不提示，用户只看到点了没反应。
+  let r;
+  try { r = await fetch(u, opt) }
+  catch (e) { return {ok:false, msg:'连不上本地服务（可能正在重启）：' + (e && e.message || e)} }
+  try { return await r.json() }
+  catch { return {ok:false, msg:'服务返回异常（HTTP ' + r.status + '）'} }
+};
+const post = (u, body) => api(u, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})});
+const KB = n => n > 1048576 ? (n/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(n/1024))+' KB';
+const DUR = s => { s=Math.round(s||0); const m=Math.floor(s/60); return m+':'+String(s%60).padStart(2,'0') };
+const KIND = {image:'', video:'视频', audio:'音频'};
+const dt = t => new Date((t||0)*1000);
+const fmtDate = t => { const d=dt(t); return isNaN(d) ? '未知时间'
+  : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` };
+
+function toast(msg, ms=2200){
+  const d=document.createElement('div'); d.textContent=msg; el('toast').appendChild(d);
+  setTimeout(()=>{d.style.transition='.25s';d.style.opacity='0';d.style.transform='translateY(6px)';},ms);
+  setTimeout(()=>d.remove(), ms+300);
+}
+function confirmBox(title, text, okText='确定'){
+  return new Promise(res=>{
+    el('cfTitle').textContent=title; el('cfText').textContent=text;
+    el('cfYes').textContent=okText;
+    el('cfMask').classList.add('on');
+    const done=v=>{el('cfMask').classList.remove('on');el('cfYes').onclick=null;el('cfNo').onclick=null;res(v)};
+    el('cfYes').onclick=()=>done(true); el('cfNo').onclick=()=>done(false);
+    el('cfMask').onclick=e=>{if(e.target===el('cfMask'))done(false)};
+  });
+}
+
+/* ==================== 状态 ==================== */
+const S = {
+  ready:false, error:'', indexed:0, roots:[], info:{}, indexing:false, progress:{}, auto:{}, log:[],
+  tree:null, view:'photos', cat:'', key:'', title:'',
+  query:'', qkind:'all', qms:0, results:[],
+  wall:{items:[], offset:0, hasMore:true, loading:false, total:0},
+  grp:{items:[], offset:0, hasMore:true, loading:false, total:0},
+  lastIndexed:-1,
+};
+let LB = {list:[], i:0};
+
+/* ==================== 渲染：照片墙 ==================== */
+function card(it, opts={}){
+  const a=document.createElement('button');
+  a.className='ph'; a.dataset.path=it.path;
+  const k=KIND[it.kind];
+  const dur=(it.kind!=='image' && it.dur) ? `<span class="tag d">${DUR(it.dur)}</span>` : '';
+  const sv=opts.score!=null ? Math.max(0, Math.min(1, opts.score)) : null;
+  const score=sv!=null ? `<span class="tag s">${Math.round(sv*100)}%</span>` : '';
+  const voice=(it.src==='asr'||it.src==='ta') ? `<span class="tag">🎤</span>` : '';
+  // 人像分组里给每张卡一个「不是他」：识别再准也总有错，得让用户能纠正
+  const nf=(opts.person!=null && it.faces && it.faces.length);
+  const fix = nf ? `<i class="fix" data-fix="${opts.person}" data-path="${esc(it.path)}"
+      data-box="${esc(it.faces[0].box||'')}" title="这张脸不是这个人">✕ 不是他</i>` : '';
+  const fcnt = (nf && it.faces.length>1) ? `<span class="fcnt">这张里有 ${it.faces.length} 张他的脸</span>` : '';
+  a.innerHTML = `<img loading="lazy" decoding="async" src="${it.thumb}" alt="" onerror="this.style.visibility='hidden'">
+    ${k?`<span class="tag k">${k}</span>`:''}${voice}${score}${dur}${fix}${fcnt}
+    <span class="hover">${esc(it.name)}${it.note?' · “'+esc(it.note).slice(0,42)+'”':''}</span>`;
+  return a;
+}
+
+function monthKey(t){
+  const d=dt(t); if(isNaN(d)) return 'unknown';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function monthLabel(k){
+  if(k==='unknown') return '未知时间';
+  const [y,m]=k.split('-'); return `${y} 年 ${+m} 月`;
+}
+
+function appendToWall(items){
+  let host=el('wallHost'); if(!host) return;
+  let secs=[...host.querySelectorAll('.msec')];
+  let last=secs.length?secs[secs.length-1]:null;
+  const batches=new Map();
+  for(const it of items){
+    const m=monthKey(it.mtime);
+    if(!batches.has(m)) batches.set(m,[]);
+    batches.get(m).push(it);
+  }
+  for(const [m,list] of batches){
+    if(!last || last.dataset.m!==m){
+      const s=document.createElement('section');
+      s.className='msec'; s.dataset.m=m; s.dataset.n='0';
+      s.innerHTML=`<h2 class="mhead">${monthLabel(m)}<span class="n"></span></h2><div class="wall"></div>`;
+      host.appendChild(s); last=s;
+    }
+    const grid=last.querySelector('.wall');
+    for(const it of list) grid.appendChild(card(it));
+    const n=+last.dataset.n + list.length; last.dataset.n=n;
+    last.querySelector('.n').textContent=n+' 项';
+  }
+}
+
+async function loadWall(reset){
+  const W=S.wall;
+  if(W.loading) return;
+  if(!reset && !W.hasMore) return;
+  W.loading=true;
+  if(reset){
+    W.items=[]; W.offset=0; W.hasMore=true;
+    el('main').innerHTML = `<div class="pagehead"><h1>照片</h1>
+      <span class="meta" id="wallMeta">正在载入…</span></div>
+      <div id="wallHost"></div><div id="sentinel" style="height:1px"></div>`;
+  }
+  const d=await api(`api/photos?offset=${W.offset}&limit=80`);
+  W.loading=false;
+  if(!d.ok){ toast(d.msg||'加载失败'); return }
+  W.total=d.total||0; W.hasMore=!!d.has_more;
+  const items=d.items||[]; W.items.push(...items); W.offset+=items.length;
+  const meta=el('wallMeta');
+  if(meta) meta.textContent = W.total ? `共 ${W.total} 项 · 按时间排列` : '';
+  if(reset && !items.length){
+    el('wallHost').innerHTML = emptyHtml('相册还是空的',
+      S.roots.length ? '目录已添加，点「建立索引」让程序读取里面的照片。' : '先添加一个存照片的文件夹，程序会在本地建立索引。',
+      S.roots.length ? '建立索引' : '添加文件夹');
+    bindEmptyBtn();
+    return;
+  }
+  appendToWall(items);
+  observeSentinel();
+}
+
+/* ==================== 渲染：分类视图 ==================== */
+function personCard(p){
+  const a=document.createElement('button'); a.className='gc person';
+  a.innerHTML=`<div class="acts"><button data-act="rename" data-id="${p.id}" data-name="${esc(p.name)}">命名</button>
+      <button data-act="merge" data-id="${p.id}" data-name="${esc(p.name)}">合并</button>
+      <button class="danger" data-act="delp" data-id="${p.id}" data-name="${esc(p.name)}">删除</button></div>
+    <div class="cover"><img loading="lazy" src="${p.cover}" alt="" onerror="this.style.opacity='.15'"></div>
+    <div class="cap"><div class="nm">${esc(p.name||('人物 '+p.id))}</div><div class="ct">${p.count} 张照片</div></div>`;
+  a.onclick=async e=>{
+    const b=e.target.closest('button[data-act]');
+    if(b){ e.stopPropagation();
+      if(b.dataset.act==='rename') return renamePerson(b.dataset.id,b.dataset.name);
+      if(b.dataset.act==='merge') return mergePersonTo(b.dataset.id,b.dataset.name);
+      return delPerson(b.dataset.id,b.dataset.name);
+    }
+    goGroup('person', p.id, p.name);
+  };
+  return a;
+}
+/* 时刻：一次连续拍摄 = 一个事件（照片 + 视频混排，按时间顺序） */
+function eventCard(m){
+  const a=document.createElement('button'); a.className='gc event';
+  a.innerHTML=`<div class="cover"><img loading="lazy" src="${esc(m.cover||'')}" alt=""
+      onerror="this.style.opacity='.12'"></div>
+    <div class="cap"><div class="nm">${esc(m.title||'一段回忆')}</div><div class="ct">${m.count} 项</div></div>`;
+  a.onclick=()=>goGroup('event', m.id, m.title);
+  return a;
+}
+
+function tagCard(cat,x){  const a=document.createElement('button'); a.className='gc';
+  const sub=(x.subs&&x.subs.length)?` · ${x.subs.join(' / ')}`:'';
+  a.innerHTML=`<div class="cover"><img loading="lazy" src="${x.cover}" alt="" onerror="this.style.opacity='.15'"></div>
+    <div class="cap"><div class="nm">${esc(x.tag)}</div><div class="ct">${x.count} 项${esc(sub)}</div></div>`;
+  a.onclick=()=>goGroup(cat,x.tag,x.tag);
+  return a;
+}
+const CATNAME={moments:'时刻',people:'人像',city:'城市',place:'场景',thing:'事物'};
+
+function renderCategory(cat){
+  el('main').innerHTML=`<div class="pagehead"><h1>${CATNAME[cat]}</h1>
+    <span class="meta" id="catMeta"></span>
+    <span class="right">${cat==='people'
+      ? '<button class="btn" id="catRebuild">重扫人脸</button>':''}</span></div>
+    <div class="groups" id="catGrid"><div class="skel" style="grid-column:1/-1">
+      ${'<i></i>'.repeat(6)}</div></div>`;
+  if(el('catRebuild')) el('catRebuild').onclick=()=>buildAlbum('','重新扫描人脸…');
+  paintCategory(cat);
+}
+function paintCategory(cat){
+  const grid=el('catGrid'); if(!grid) return;
+  const T=S.tree||{};
+  let arr=[], mk=null;
+  if(cat==='people'){ arr=T.people||[]; mk=personCard }
+  if(cat==='moments'){ arr=T.moments||[]; mk=eventCard }
+  if(cat==='city'){ arr=T.city||[]; mk=x=>tagCard('city',x) }
+  if(cat==='place'){ arr=T.place||[]; mk=x=>tagCard('place',x) }
+  if(cat==='thing'){ arr=T.thing||[]; mk=x=>tagCard('thing',x) }
+  const meta=el('catMeta');
+  if(meta) meta.textContent=arr.length?`${arr.length} 个分组`:'';
+  const nloose = cat==='people' ? (T.unassigned||0) : 0;
+  if(!arr.length && !nloose){
+    const tip = cat==='people'
+      ? '还没有识别到人脸。点右上角「重扫人脸」，几百张照片通常几分钟。'
+      : (cat==='moments' ? '还没整理出事件。点右侧「更多」→「更新标签 + 城市」，会按拍摄时间把照片切成一次次活动。'
+      : (cat==='city' ? '这些照片没有 GPS 定位信息，或者还没生成城市分类。'
+                      : '还没生成分类。点右侧「更多」→「更新标签 + 城市」，约 1 分钟。'));
+    grid.innerHTML=emptyHtml('这里还是空的', tip, '');
+    bindEmptyBtn(); return;
+  }
+  grid.className = cat==='moments' ? 'groups wide' : 'groups';
+  grid.innerHTML='';
+  arr.forEach(x=>grid.appendChild(mk(x)));
+  // 只出现一两次的脸不单独建成人物（否则列表全是"1 张"的噪音），
+  // 但也不能就这么消失 —— 收在「其他面孔」里，随时可以认领。
+  if(nloose) grid.appendChild(looseCard(T));
+}
+
+function looseCard(T){
+  const a=document.createElement('button'); a.className='gc person loose';
+  const fid=T.unassigned_cover||0;
+  a.title='只出现过一两次的脸，点开可以认领';
+  a.innerHTML=`<div class="cover">${fid
+      ?`<img loading="lazy" src="facecut/f/${fid}" alt="" onerror="this.style.opacity='.15'">`
+      :'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px">👤</div>'}</div>
+    <div class="cap"><div class="nm">其他面孔</div><div class="ct">${T.unassigned} 张待认领</div></div>`;
+  a.onclick=()=>{ location.hash='#/loose' };
+  return a;
+}
+
+/* ==================== 渲染：分组照片墙 ==================== */
+async function goGroup(cat,key,title){
+  S.view='group'; S.cat=cat; S.key=key; S.title=title||'';
+  history.replaceState(null,'',`#/g/${cat}/${encodeURIComponent(key)}?t=${encodeURIComponent(title||'')}`);
+  renderGroup(true);
+}
+function groupTitle(cat,key){
+  if(cat==='person'&&S.tree){
+    const p=(S.tree.people||[]).find(x=>String(x.id)===String(key));
+    if(p&&p.name) return p.name;
+  }
+  if(cat==='event'&&S.tree){
+    const m=(S.tree.moments||[]).find(x=>String(x.id)===String(key));
+    if(m) return m.title;
+  }
+  if(cat==='event') return '时刻';
+  return cat==='person' ? '' : (key||'');
+}
+
+function renderGroup(reset){
+  if(reset){
+    const catName = S.cat==='person' ? '人像'
+                  : (S.cat==='event' ? '时刻' : (CATNAME[S.cat]||''));
+    const gt = S.title || groupTitle(S.cat,S.key) || '分组';
+    el('main').innerHTML=`<div class="pagehead">
+      <button class="tbtn ghost" id="gBack">← 返回${catName}</button>
+      <h1 id="gTitle">${esc(gt)}</h1>
+      <span class="meta" id="gMeta">载入中…</span></div>
+      <div class="wall big" id="gWall"></div><div id="sentinel" style="height:1px"></div>`;
+    el('gBack').onclick=()=>go(S.cat==='person'?'people'
+      :(S.cat==='event'?'moments':S.cat));
+    S.grp={items:[], offset:0, hasMore:true, loading:false, total:0};
+    // 直接刷新进来时 tree 还没加载，人像分组拿不到名字，补一次
+    if((S.cat==='person'||S.cat==='event') && !S.tree){
+      loadTree().then(()=>{
+        const t=el('gTitle');
+        const nm=groupTitle(S.cat,S.key);
+        if(t&&nm) t.textContent=nm;
+      });
+    }
+  }
+  loadGroup();
+}
+async function loadGroup(){
+  const G=S.grp; if(G.loading||!G.hasMore) return;
+  G.loading=true;
+  const d=await api(`api/album/items?cat=${encodeURIComponent(S.cat)}&key=${encodeURIComponent(S.key)}&k=80&offset=${G.offset}`);
+  G.loading=false;
+  if(!d.ok){ toast(d.msg||'加载失败'); return }
+  G.total=d.total||0; G.hasMore=!!d.has_more; G.offset+=(d.items||[]).length;
+  const m=el('gMeta'); if(m) m.textContent=G.total?`${G.total} 项`:'';
+  const wall=el('gWall');
+  // 存进 G.items：灯箱的上一张/下一张、「不是他」都靠它拿到这些人脸框
+  G.items.push(...(d.items||[]));
+  (d.items||[]).forEach(it=>wall.appendChild(card(it,{person: S.cat==='person'?S.key:null})));
+  if(reset && !G.total && wall) wall.innerHTML=emptyHtml('这个分组是空的','可能照片已被删除或移出。','');
+  observeSentinel();
+}
+
+/* ==================== 其他面孔：脸太少没建成人物的那些 ==================== */
+let LOOSE={items:[],offset:0,hasMore:true,loading:false,total:0};
+async function renderLoose(reset){
+  S.view='group'; S.cat='loose';
+  if(reset){
+    el('main').innerHTML=`<div class="pagehead">
+      <button class="tbtn ghost" id="gBack">← 返回人像</button>
+      <h1>其他面孔</h1><span class="meta" id="gMeta">载入中…</span></div>
+      <p class="loosehint">这些脸在照片里只出现过一两次，还不够确认是同一个人，所以没单独建成人物。
+        点任意一张可以认领：归到某个人、单独建一组，或者标记为「不是人」（右上角 ✕）。</p>
+      <div class="facegrid" id="fgrid"></div>
+      <div id="sentinel" style="height:1px"></div>`;
+    el('gBack').onclick=()=>go('people');
+    LOOSE={items:[],offset:0,hasMore:true,loading:false,total:0};
+    el('fgrid').innerHTML='';
+  }
+  await loadLoose();
+}
+async function loadLoose(){
+  const L=LOOSE; if(L.loading||!L.hasMore) return;
+  L.loading=true;
+  let d; try{ d=await api(`api/faces/unassigned?offset=${L.offset}&k=120`) }
+  finally{ L.loading=false }
+  if(!d||!d.ok){ toast((d&&d.msg)||'加载失败'); return }
+  L.total=d.total||0; L.hasMore=!!d.has_more; L.offset+=(d.items||[]).length;
+  L.items.push(...(d.items||[]));
+  const m=el('gMeta'); if(m) m.textContent=`${L.total} 张待认领`;
+  const g=el('fgrid'); if(!g) return;
+  (d.items||[]).forEach(it=>{
+    const b=document.createElement('button'); b.className='fcell';
+    b.title=it.name||'';
+    b.innerHTML=`<img loading="lazy" src="${it.thumb}" alt="" onerror="this.style.opacity='.15'"><i class="fdel" title="不是人">✕</i>`;
+    b.onclick=e=>{
+      if(e.target.classList.contains('fdel')){ e.stopPropagation(); return claimFace(it,-1) }
+      claimFace(it);
+    };
+    g.appendChild(b);
+  });
+  if(!L.total) g.innerHTML=emptyHtml('没有待认领的脸','人脸都归好组了，不用管这里。','');
+  observeSentinel();
+}
+async function claimFace(it, force){
+  const to = (force!==undefined) ? force : await pickPerson('这张脸是谁？');
+  if(to==null) return;
+  const d=await post('api/face/move',{path:it.path, box:it.box, to});
+  if(!d.ok){ toast(d.msg||'操作失败'); return }
+  toast(to===-1?'已标记为「不是人」':(to===-2?'已单独建一组':'已归到这个人'));
+  await loadTree();
+  renderLoose(true);
+}
+
+/* ==================== 重复照片（感知哈希） ==================== */
+async function openDups(){
+  el('dupMask').classList.add('on'); el('dup').classList.add('on');
+  el('dupList').innerHTML='<div class="skel"><i></i></div>';
+  el('dupSub').textContent='正在扫描…';
+  await scanDups();
+}
+async function scanDups(){
+  const d=await api('api/dups');
+  if(!d||!d.ok){ el('dupSub').textContent='扫描失败'; return }
+  const ph=d.phash||{};
+  if(ph.running){                 // 老库第一次用要补算指纹，边算边显示
+    el('dupSub').textContent=`正在补算照片指纹 ${ph.done||0}/${ph.total||0}…`;
+    setTimeout(scanDups, 1200);
+  }
+  renderDups(d);
+}
+function renderDups(d){
+  const gs=d.groups||[];
+  el('dupSub').textContent = gs.length
+    ? `找到 ${gs.length} 组几乎一样的照片，全部清理可省 ${KB(d.waste)}`
+    : '没有发现重复照片';
+  el('dupList').innerHTML = gs.length ? gs.map(g=>`
+    <div class="dupg">
+      <div class="duprow">${g.items.map(it=>
+        `<img src="${esc(it.thumb||'')}" class="${it.path===g.keep?'keep':''}"
+              title="${esc(it.name||it.path)}" onerror="this.style.opacity='.15'">`).join('')}</div>
+      <div class="dupmeta"><span>${g.n} 张</span><span>可省 ${KB(g.waste)}</span>
+        <span>蓝框那张会被保留（分辨率最高）</span></div>
+    </div>`).join('')
+    : `<div style="padding:34px 0;text-align:center;color:var(--dim);font-size:13px">
+         没有发现重复或连拍照片。</div>`;
+}
+function closeDups(){
+  el('dupMask').classList.remove('on'); el('dup').classList.remove('on');
+}
+el('dupClose').onclick=closeDups;
+el('dupMask').onclick=closeDups;
+el('dupClean').onclick=async()=>{
+  const d0=await api('api/dups');
+  if(!d0.groups||!d0.groups.length){ toast('没有需要清理的重复照片'); return }
+  const ok=await confirmBox('清理重复照片',
+    `共 ${d0.groups.length} 组。每组保留分辨率最高的一张，其余移到程序回收站`
+    + `（data\\trash，可以手工找回）。`);
+  if(!ok) return;
+  const r=await post('api/dups/clean',{});
+  if(!r.ok){ toast(r.msg||'清理失败'); return }
+  toast(`已移走 ${r.moved} 个文件，释放 ${KB(r.freed)}`);
+  closeDups(); loadTree();
+};
+
+/* ==================== 空态 ==================== */
+function emptyHtml(title, text, btn){
+  return `<div class="empty" style="grid-column:1/-1">
+    <div class="big">🗂️</div><h3>${esc(title)}</h3><p>${esc(text)}</p>
+    ${btn?`<div class="row"><button class="btn pri" data-empty="1">${esc(btn)}</button></div>`:''}</div>`;
+}
+function bindEmptyBtn(){
+  const b=document.querySelector('[data-empty]');
+  if(b) b.onclick=()=>{
+    if(!S.roots.length){ openDrawer(); el('fInput').focus() }
+    else doIndex();
+  };
+}
+
+/* ==================== 视图切换 ==================== */
+function go(view, opt={}){
+  openSearch(false);
+  S.view=view;
+  if(view!=='group'){ S.cat=opt.cat||view; }
+  const hash = view==='photos' ? '#/photos' : '#/'+view;
+  if(location.hash!==hash) history.replaceState(null,'',hash);
+  paintTabs();
+  if(view==='photos') return loadWall(true);
+  if(view==='people'||view==='moments'||view==='city'||view==='place'||view==='thing'){
+    if(S.tree) return renderCategory(view);
+    el('main').innerHTML=`<div class="skel">${'<i></i>'.repeat(8)}</div>`;
+    return loadTree().then(()=>renderCategory(view));
+  }
+  if(view==='search') return renderSearch();
+}
+function paintTabs(){
+  document.querySelectorAll('#tabs a').forEach(a=>{
+    const v=a.dataset.v;
+    const on = S.view===v || (S.view==='group' &&
+      (v==='people' ? (S.cat==='person'||S.cat==='loose') : S.cat===v));
+    a.classList.toggle('on', on);
+  });
+}
+
+async function loadTree(){
+  const d=await api('api/album/tree');
+  if(!d.ok) return;
+  S.tree=d;
+  el('cMoments').textContent=d.moments&&d.moments.length?d.moments.length:'';
+  el('cPeople').textContent=d.people&&d.people.length?d.people.length:'';
+  el('cCity').textContent=d.city&&d.city.length?d.city.length:'';
+  el('cPlace').textContent=d.place&&d.place.length?d.place.length:'';
+  el('cThing').textContent=d.thing&&d.thing.length?d.thing.length:'';
+  if(['people','moments','city','place','thing'].includes(S.view)) paintCategory(S.view);
+}
+
+/* ==================== 搜索 ==================== */
+function openSearch(on=true){
+  el('sPanel').classList.toggle('on',on);
+  el('sMask').classList.toggle('on',on);
+  el('btnSearch').classList.toggle('on',on);
+  if(on){ openDrawer(false); paintQHist(); setTimeout(()=>el('q').focus(),60) }
+}
+el('btnSearch').onclick=()=>openSearch(!el('sPanel').classList.contains('on'));
+el('sMask').onclick=()=>openSearch(false);
+document.querySelectorAll('#kindChips .chip').forEach(c=>c.onclick=()=>{
+  document.querySelectorAll('#kindChips .chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); S.qkind=c.dataset.k;
+  if(S.query) runSearch(S.query);
+});
+el('btnGo').onclick=()=>{
+  const q=el('q').value.trim();
+  if(!q){ el('q').focus(); return }
+  runSearch(q);
+};
+el('q').addEventListener('keydown',e=>{ if(e.key==='Enter') el('btnGo').click() });
+
+async function runSearch(q){
+  S.query=q; openSearch(false);
+  S.view='search'; paintTabs();
+  history.replaceState(null,'',`#/search?q=${encodeURIComponent(q)}&kind=${S.qkind}`);
+  el('main').innerHTML=`<div class="qbar"><span class="loader"></span>正在理解「${esc(q)}」…</div>
+    <div class="wall" id="qWall"></div>`;
+  const d=await api('api/search',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({q, kind:S.qkind, k:120})});
+  if(!d.ok){ el('main').innerHTML=emptyHtml('搜索失败', d.msg||'未知错误',''); return }
+  S.results=d.results||[]; S.qms=d.ms||0;
+  renderSearch();
+  qHistAdd(q);
+}
+
+/* ---- 最近搜索（localStorage，纯本地，不联网） ---- */
+function qHistGet(){
+  try{ return JSON.parse(localStorage.getItem('qhist')||'[]') }catch{ return [] }
+}
+function qHistAdd(q){
+  if(!q||!window.localStorage) return;
+  let a=qHistGet().filter(x=>x!==q);
+  a.unshift(q); a=a.slice(0,8);
+  try{ localStorage.setItem('qhist', JSON.stringify(a)) }catch{}
+  paintQHist();
+}
+function paintQHist(){
+  const box=el('qHist'); if(!box) return;
+  const a=qHistGet();
+  if(!a.length){ box.style.display='none'; return }
+  box.style.display='';
+  box.innerHTML=`<span class="shint" style="margin:0 6px 0 0">最近</span>`
+    + a.map(q=>`<button class="chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')
+    + `<button class="chip" data-q="__clear">清除</button>`;
+}
+el('qHist').onclick=e=>{
+  const b=e.target.closest('.chip[data-q]'); if(!b) return;
+  const q=b.dataset.q;
+  if(q==='__clear'){ try{ localStorage.removeItem('qhist') }catch{} paintQHist(); return }
+  el('q').value=q; runSearch(q);
+};
+el('q').addEventListener('focus', paintQHist);
+el('q').addEventListener('input', ()=>{
+  if(!el('q').value.trim()) paintQHist();
+});
+
+function renderSearch(){
+  const rs=S.results;
+  el('main').innerHTML=`<div class="pagehead"><h1 style="font-size:22px">搜索结果</h1>
+      <span class="meta">「${esc(S.query)}」· ${rs.length} 项 · ${S.qms} ms</span>
+      <span class="right"><button class="btn" id="qClear">清除搜索</button></span></div>
+    <div id="qBody"></div>`;
+  el('qClear').onclick=()=>{ S.query='';S.results=[]; go('photos') };
+  const body=el('qBody');
+  if(!rs.length){
+    body.innerHTML=emptyHtml('没有找到匹配的内容','换个说法试试，比如把「猫」换成「小猫趴在床上」。','');
+    return;
+  }
+  // 分档：语义检索总会把「最像的几张」排前面，后面的多半只是弱相关，
+  // 相册主界面不应该一股脑全铺开，先给最相关的一档，其余折叠。
+  const top=Math.max(...rs.map(x=>(x.cos!=null?x.cos:x.score)||0));
+  const cut=Math.max(0.30, top*0.86);
+  let strong=rs.filter(x=>(x.cos!=null?x.cos:x.score)>=cut);
+  // 强相关不足 3 张时补到 3 张，避免第一屏只孤零零一张
+  if(strong.length<3) strong=rs.slice(0,Math.min(3,rs.length));
+  const keep=new Set(strong.map(x=>x.path));
+  let weak=rs.filter(x=>!keep.has(x.path));
+  const fold = weak.length>=4;
+  if(!fold){ strong=rs; weak=[] }
+
+  const w1=document.createElement('div'); w1.className='wall'; body.appendChild(w1);
+  strong.forEach(it=>w1.appendChild(card(it,{score:(it.cos!=null?it.cos:it.score)})));
+  if(!weak.length) return;
+
+  const wrap=document.createElement('div'); wrap.className='morewrap';
+  wrap.innerHTML=`<button class="btn" id="qMore">还有 ${weak.length} 项相关度较低 · 展开</button>`;
+  body.appendChild(wrap);
+  const w2=document.createElement('div'); w2.className='wall'; w2.style.display='none';
+  body.appendChild(w2);
+  el('qMore').onclick=e=>{
+    const open=w2.style.display!=='none';
+    if(open){ w2.style.display='none'; e.target.textContent=`还有 ${weak.length} 项相关度较低 · 展开`; return }
+    if(!w2.childElementCount) weak.forEach(it=>w2.appendChild(card(it,{score:(it.cos!=null?it.cos:it.score)})));
+    w2.style.display=''; e.target.textContent='收起';
+  };
+}
+
+/* 以图搜图 / 语音 */
+el('btnImg').onclick=()=>el('file').click();
+el('file').onchange=async e=>{
+  const f=e.target.files[0]; e.target.value='';
+  if(!f) return;
+  openSearch(false);
+  el('main').innerHTML=`<div class="qbar"><span class="loader"></span>正在分析这张图片…</div><div class="wall" id="qWall"></div>`;
+  const fd=new FormData(); fd.append('file',f);
+  const d=await api(`api/similar?k=120&kind=${S.qkind}`,{method:'POST',body:fd});
+  if(!d.ok){ el('main').innerHTML=emptyHtml('没能识别这张图', d.msg||'',''); return }
+  S.query='以图搜图'; S.results=d.results||[]; S.qms=d.ms||0;
+  S.view='search'; paintTabs(); renderSearch();
+};
+
+let MEDIA=null, CHUNKS=[];
+el('btnMic').onclick=async()=>{
+  if(MEDIA && MEDIA.state==='recording'){ MEDIA.stop(); return }
+  try{
+    const st=await navigator.mediaDevices.getUserMedia({audio:true});
+    MEDIA=new MediaRecorder(st); CHUNKS=[];
+    MEDIA.ondataavailable=e=>CHUNKS.push(e.data);
+    MEDIA.onstop=async()=>{
+      st.getTracks().forEach(t=>t.stop());
+      el('btnMic').classList.remove('rec'); el('btnMic').textContent='🎤';
+      el('sHint').innerHTML='<span class="loader"></span>正在识别语音…';
+      const blob=new Blob(CHUNKS,{type:MEDIA.mimeType||'audio/webm'});
+      const fd=new FormData(); fd.append('file',blob,'voice.webm');
+      const d=await api(`api/voice?k=120&kind=${S.qkind}`,{method:'POST',body:fd});
+      if(!d.ok){ el('sHint').textContent='语音搜索失败：'+(d.msg||''); return }
+      el('q').value=d.query||''; el('sHint').textContent='';
+      openSearch(false);
+      S.query=d.query||''; S.results=d.results||[]; S.qms=d.ms||0;
+      S.view='search'; paintTabs(); renderSearch();
+    };
+    MEDIA.start();
+    el('btnMic').classList.add('rec'); el('btnMic').textContent='⏹';
+    el('sHint').textContent='正在录音，再点一次结束并搜索…';
+  }catch(err){ el('sHint').textContent='无法访问麦克风：'+err.message }
+};
+
+/* ==================== 灯箱 ==================== */
+function currentList(){
+  if(S.view==='search') return S.results;
+  if(S.view==='group') return S.grp.items.length?S.grp.items:null;
+  return S.wall.items;
+}
+function openLB(path){
+  const list=currentList() || [];
+  const i=list.findIndex(x=>x.path===path);
+  LB={list, i: i<0?0:i};
+  el('lb').classList.add('on');
+  document.body.style.overflow='hidden';
+  paintLB();
+}
+async function findSimilar(it){
+  if(!it) return;
+  if(it.kind!=='image'){ toast('找相似目前只支持照片'); return }
+  closeLB();
+  el('main').innerHTML=`<div class="qbar"><span class="loader"></span>正在找相似的画面…</div><div id="qBody"></div>`;
+  const d=await api(`api/similar/path?k=120&kind=image&path=${encodeURIComponent(it.path)}`);
+  if(!d.ok){ el('main').innerHTML=emptyHtml('没能分析这张图', d.msg||'',''); return }
+  S.query='与 '+(it.name||'这张图')+' 相似';
+  S.results=(d.results||[]).filter(x=>x.path!==it.path);
+  S.qms=d.ms||0; S.view='search'; paintTabs();
+  history.replaceState(null,'',`#/search?q=${encodeURIComponent('相似画面')}`);
+  renderSearch();
+}
+
+async function paintLB(){
+  const it=LB.list[LB.i]; if(!it) return closeLB();
+  el('lbName').textContent=it.name||'';
+  el('lbIdx').textContent=`${LB.i+1} / ${LB.list.length}`;
+  el('lbOpen').href=it.open||'#';
+  el('lbDl').onclick=()=>{ const a=document.createElement('a'); a.href=it.open; a.download=it.name||'file'; a.click() };
+  el('lbDel').onclick=()=>deleteItem(it, true);
+  el('lbSim').onclick=()=>findSimilar(it);
+  el('lbSim').style.display = it.kind==='image' ? '' : 'none';
+  // 只在人像分组里、且这张图确实有他的脸时才给「不是他」
+  const inPerson = (S.view==='group' && S.cat==='person' && it.faces && it.faces.length);
+  el('lbNotHim').style.display = inPerson ? '' : 'none';
+  el('lbNotHim').onclick=()=>{ if(inPerson) fixFace(it.path, +S.key) };
+  el('lbPrev').style.display = LB.list.length>1?'':'none';
+  el('lbNext').style.display = LB.list.length>1?'':'none';
+
+  const stage=el('lbMedia');
+  stage.innerHTML='';
+  if(it.kind==='video'){
+    const v=document.createElement('video');
+    v.src=it.open; v.controls=true; v.autoplay=true; v.playsInline=true;
+    stage.appendChild(v);
+  }else if(it.kind==='audio'){
+    const w=document.createElement('div'); w.className='audiowrap';
+    w.innerHTML=`<img src="${it.thumb}" alt=""><br>`;
+    const a=document.createElement('audio'); a.src=it.open; a.controls=true; a.autoplay=true;
+    w.appendChild(a); stage.appendChild(w);
+  }else{
+    const im=document.createElement('img'); im.src=it.open; im.alt='';
+    im.onerror=()=>{ im.replaceWith(Object.assign(document.createElement('div'),
+      {className:'lb-act', textContent:'原图打不开，可能文件已被移动（可看缩略图）'})) };
+    stage.appendChild(im);
+  }
+
+  // 详情
+  el('lbInfo').innerHTML=`<div class="col"><div class="k">时间</div><div class="v">${fmtDate(it.mtime)}</div></div>
+    <div class="col"><div class="k">大小 / 尺寸</div><div class="v">${KB(it.size||0)}${it.w?` · ${it.w}×${it.h}`:''}${it.dur?` · ${DUR(it.dur)}`:''}</div></div>
+    <div class="col" style="min-width:220px;flex:1"><div class="k">位置</div><div class="v" style="word-break:break-all">${esc(it.path)}</div></div>`;
+  const d=await api(`api/photo/detail?path=${encodeURIComponent(it.path)}`);
+  if(!d.ok) return;
+  const x=d.item||it, g=d.gps, cats=(d.tags||[]), ppl=d.people||[];
+  const tagsHtml=cats.slice(0,10).map(t=>`<span class="pill">${esc(t.tag)}</span>`).join('');
+  const pplHtml=ppl.map(p=>`<span class="pill">👤 ${esc(p.name)}</span>`).join('');
+  const geo = g && g.city ? `<div class="col"><div class="k">地点</div><div class="v">
+      ${esc(g.city)}${g.sub?' · '+esc(g.sub):''}</div></div>` : '';
+  el('lbInfo').innerHTML=`
+    <div class="col"><div class="k">时间</div><div class="v">${fmtDate(x.mtime)}</div></div>
+    <div class="col"><div class="k">大小 / 尺寸</div><div class="v">${KB(x.size||0)}${x.w?` · ${x.w}×${x.h}`:''}${x.dur?` · ${DUR(x.dur)}`:''}</div></div>
+    ${geo}
+    ${ppl.length?`<div class="col"><div class="k">人物</div><div class="v">${pplHtml}</div></div>`:''}
+    ${tagsHtml?`<div class="col"><div class="k">标签</div><div class="v">${tagsHtml}</div></div>`:''}
+    <div class="col" style="min-width:240px;flex:1"><div class="k">文件</div>
+      <div class="v" style="word-break:break-all">${esc(x.path)}</div>
+      ${x.note?`<div class="note" style="margin-top:8px">🎤 “${esc(x.note)}”</div>`:''}</div>`;
+}
+function closeLB(){
+  el('lb').classList.remove('on');
+  document.body.style.overflow='';
+  el('lbMedia').innerHTML='';
+}
+function stepLB(d){
+  if(LB.list.length<2) return;
+  LB.i=(LB.i+d+LB.list.length)%LB.list.length;
+  paintLB();
+}
+el('lbClose').onclick=closeLB;
+el('lbPrev').onclick=()=>stepLB(-1);
+el('lbNext').onclick=()=>stepLB(1);
+el('lb').onclick=e=>{ if(e.target===el('lb')||e.target===el('lbStage')) closeLB() };
+
+/* ==================== 删除 / 人物操作 ==================== */
+async function deleteItem(it, inLB){
+  const ok=await confirmBox('删除这个文件？',
+    `${it.name}\n\n文件会移动到程序目录的 trash 回收站（按日期分文件夹），可以从那里找回。`,'移动到回收站');
+  if(!ok) return;
+  const d=await post('api/item/delete',{path:it.path});
+  if(!d.ok){ toast('删除失败：'+(d.msg||'')); return }
+  toast('已移到回收站');
+  const drop=p=>{
+    S.wall.items=S.wall.items.filter(x=>x.path!==p);
+    S.grp.items=S.grp.items.filter(x=>x.path!==p);
+    S.results=S.results.filter(x=>x.path!==p);
+    document.querySelectorAll(`.ph[data-path="${CSS.escape(p)}"]`).forEach(n=>{
+      n.style.transition='.2s'; n.style.opacity='0'; n.style.transform='scale(.94)';
+      setTimeout(()=>n.remove(),220);
+    });
+  };
+  drop(it.path);
+  if(inLB){
+    LB.list=LB.list.filter(x=>x.path!==it.path);
+    if(!LB.list.length) closeLB(); else { LB.i=Math.min(LB.i,LB.list.length-1); paintLB() }
+  }
+  S.indexed=Math.max(0,S.indexed-1);
+  setTimeout(()=>refreshStatus(), 600);
+}
+
+async function renamePerson(id, cur){
+  const n=prompt('给这个人起个名字\n\n如果同一个人被拆成了几组，把几组都改成同一个名字，会自动合并。', cur||'');
+  if(n===null) return;
+  const d=await post('api/person/rename',{id:+id,name:n.trim()});
+  if(d.merged) toast('已自动合并 '+d.merged+' 个同名分组');
+  await loadTree();
+}
+async function delPerson(id,name){
+  const ok=await confirmBox('删除人物分组「'+(name||'未命名')+'」？',
+    '· 只删除这个分组，照片文件全部保留\n· 这张脸会记入忽略名单，重新扫人脸也不会再出现','删除分组');
+  if(!ok) return;
+  const d=await post('api/person/delete',{id:+id});
+  if(!d.ok){ toast('删除失败：'+(d.msg||'')); return }
+  toast(`已删除分组（${d.faces||0} 张脸）`);
+  await loadTree();
+}
+
+/* ==================== 手动纠正人像分组 ==================== */
+let PK_RES=null;
+function pickPerson(title, excludeId){
+  return new Promise(res=>{
+    PK_RES=res;
+    el('pkTitle').textContent=title||'这张脸属于谁？';
+    const list=((S.tree||{}).people||[]).filter(p=>String(p.id)!==String(excludeId));
+    el('pkList').innerHTML = list.length
+      ? list.map(p=>`<button class="pkitem" data-pid="${p.id}">
+          <img src="${p.cover}" alt="" onerror="this.style.opacity='.2'">
+          <div class="nm">${esc(p.name||('人物 '+p.id))}</div>
+          <div class="ct">${p.count} 张</div>
+        </button>`).join('')
+      : `<div style="grid-column:1/-1;color:var(--dim);font-size:13px;padding:8px 2px">
+           还没有别的人物分组。点右下角「单独新建一组」即可。</div>`;
+    el('pkMask').classList.add('on');
+    el('pk').classList.add('on');
+  });
+}
+function pkDone(v){
+  el('pkMask').classList.remove('on');
+  el('pk').classList.remove('on');
+  const r=PK_RES; PK_RES=null; if(r) r(v);
+}
+el('pkClose').onclick=()=>pkDone(null);
+el('pkMask').onclick=()=>pkDone(null);
+el('pkNew').onclick=()=>pkDone(-2);
+el('pkHide').onclick=()=>pkDone(-1);
+el('pkList').onclick=e=>{
+  const b=e.target.closest('.pkitem[data-pid]');
+  if(b) pkDone(+b.dataset.pid);
+};
+
+/* 「不是他」：把这张脸从当前分组里拿出来 */
+async function fixFace(path, pid){
+  const it=(S.grp.items||[]).find(x=>x.path===path)
+        || (S.wall.items||[]).find(x=>x.path===path)
+        || (S.results||[]).find(x=>x.path===path);
+  const nf=(it&&it.faces)?it.faces.length:1;
+  const tip = nf>1 ? `\n\n这张照片里有 ${nf} 张脸被认成他，会一起调整。` : '';
+  const to=await pickPerson('这张脸其实是谁？'+tip, pid);
+  if(to==null) return;
+  const box=(it&&it.faces&&it.faces[0])?it.faces[0].box:'';
+  // 传 from：只动"这张照片里被认成他"的那些脸，合影里别人的脸不受影响
+  const d=await post('api/face/move',{path, from:+pid, box:nf===1?box:'', to});
+  if(!d.ok){ toast(d.msg||'调整失败'); return }
+  toast(to===-2?'已拆成单独一组，可再归到别人'
+      :(to===-1?'已移出人像分类':'已归到新的人物'));
+  closeLB();
+  await loadTree();
+  if(S.view==='group') renderGroup(true);
+}
+
+/* 「合并到…」：把整个分组并进另一个人物 */
+async function mergePersonTo(id, name){
+  const to=await pickPerson('把「'+(name||('人物 '+id))+'」整个合并到谁？', id);
+  if(to==null || to<0) return;
+  const d=await post('api/person/merge_into',{from:+id, to:+to});
+  if(!d.ok){ toast(d.msg||'合并失败'); return }
+  toast(`已合并，共 ${d.faces} 张脸`);
+  await loadTree();
+}
+
+/* ==================== 抽屉：目录 / 索引 / 相册 ==================== */
+function openDrawer(on=true){
+  el('drawer').classList.toggle('on',on);
+  el('dMask').classList.toggle('on',on);
+  el('btnMore').classList.toggle('on',on);
+  if(on){ openSearch(false); loadFolders(); syncDrawer() }
+}
+el('btnMore').onclick=()=>openDrawer(true);
+el('dClose').onclick=()=>openDrawer(false);
+el('dMask').onclick=()=>openDrawer(false);
+
+const QUICK=['此电脑\\图片','E:\\相册','E:\\相册\\相机照片','D:\\照片','桌面'];
+el('fQuick').innerHTML=QUICK.map(p=>`<button data-p="${esc(p)}">${esc(p)}</button>`).join('');
+el('fQuick').onclick=e=>{ const b=e.target.closest('button'); if(b){ el('fInput').value=b.dataset.p; el('fInput').focus() } };
+
+async function loadFolders(){
+  const d=await api('api/folders');
+  const roots=d.roots||[];
+  el('fList').innerHTML = roots.length ? roots.map(p=>`
+    <div class="fitem"><span>📁</span><span class="p">${esc(p)}</span>
+      <button data-del="${esc(p)}" title="移除">移除</button></div>`).join('')
+    : `<div style="font-size:12.5px;color:var(--faint);padding:4px 0">还没有添加目录</div>`;
+  el('fList').querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    const ok=await confirmBox('移除这个目录？','只停止监控，不会删除文件，也不会清空已建好的索引。','移除');
+    if(!ok) return;
+    await api('api/folders',{method:'DELETE',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({path:b.dataset.del})});
+    loadFolders(); refreshStatus();
+  });
+}
+el('fAdd').onclick=async()=>{
+  const p=el('fInput').value.trim(); if(!p) return;
+  const d=await post('api/folders',{path:p});
+  if(!d.ok){ toast(d.msg||'添加失败'); return }
+  el('fInput').value=''; toast('目录已添加');
+  loadFolders(); refreshStatus();
+};
+el('fInput').addEventListener('keydown',e=>{ if(e.key==='Enter') el('fAdd').click() });
+
+async function doIndex(){
+  const d=await post('api/index',{});
+  if(!d.ok){ toast(d.msg||'无法开始'); return }
+  toast('开始建立索引');
+  refreshStatus();
+}
+el('dIndex').onclick=doIndex;
+el('dStop').onclick=async()=>{ await post('api/index/stop',{}); toast('已请求停止'); refreshStatus() };
+
+function buildAlbum(qs, tip){
+  post('api/album/build'+qs,{}).then(d=>{
+    if(d.ok===false){ toast(d.msg||'无法开始'); return }
+    toast(tip||'已开始'); pollAlbum();
+  });
+}
+el('dBuild').onclick=()=>buildAlbum('','正在重建相册（重扫人脸）…');
+el('dQuick').onclick=()=>buildAlbum('?only=quick','正在更新标签与城市…');
+el('dCluster').onclick=()=>buildAlbum('?only=cluster','正在重新合并人脸…');
+el('dDups').onclick=()=>{ openDrawer(false); openDups() };
+
+/* ---- 应用级操作：日志 / 重开窗口 / 退出 ---- */
+el('dLog').onclick=async()=>{
+  const r=await api('api/reveal?what=log');
+  if(!r.ok) toast(r.msg||'打不开日志目录');
+};
+el('dReload').onclick=()=>{
+  // 浏览器窗口被误关时用这个重新拉起来，不用回桌面找图标
+  api('api/reveal?what=window');
+  toast('正在重新打开界面窗口…');
+};
+el('dQuit').onclick=async()=>{
+  const yes=await confirmBox('退出语义相册？',
+    '退出后离线索引、自动更新都会停止，这个页面也会断开。下次双击程序图标即可重新启动。',
+    '退出');
+  if(!yes) return;
+  const r=await post('api/shutdown');
+  if(!r.ok){ toast(r.msg||'退出失败'); return }
+  document.body.innerHTML=
+    '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    +'height:100vh;gap:14px;font:15px/1.8 system-ui;color:#8b93a1;text-align:center">'
+    +'<div style="font-size:19px;color:#c9d1dd">语义相册已退出</div>'
+    +'<div>现在可以关闭这个窗口了。<br>需要再用时，双击桌面上的「语义相册」图标。</div></div>';
+};
+
+let ALBUM_TIMER=null;
+function pollAlbum(){
+  clearInterval(ALBUM_TIMER);
+  ALBUM_TIMER=setInterval(async()=>{
+    const s=await api('api/album/status');
+    el('dAlbumLog').textContent = s.running
+      ? `${s.stage} ${s.done}/${s.total}${s.faces?` · 已找到 ${s.faces} 张脸`:''}`
+      : `完成 · ${s.faces||0} 张脸归为 ${s.people||0} 个人物`;
+    if(!s.running){ clearInterval(ALBUM_TIMER); ALBUM_TIMER=null; loadTree();
+      if(S.view==='photos') loadWall(true); }
+  }, 2000);
+  el('dAlbumLog').textContent='正在开始…';
+}
+
+/* ==================== 状态轮询 ==================== */
+function syncDrawer(){
+  el('dModel').textContent = S.ready ? ('就绪 · '+(S.info&&S.info.note?S.info.note.replace(/（.*?）/,'').trim():'')) : (S.error?'出错':'加载中…');
+  el('dIdx').textContent = S.indexed + ' 项';
+  el('dAuto').textContent = S.auto&&S.auto.on ? `开 · 每 ${S.auto.every||0} 秒` : '关';
+  el('dIndex').disabled = !S.ready || S.indexing || !S.roots.length;
+  el('dIndex').textContent = S.indexing ? '索引中…' : '建立索引';
+  el('dStop').disabled = !S.indexing;
+  const p=S.progress||{};
+  const pct = p.total ? Math.round(p.done/p.total*100) : 0;
+  el('dBar').style.width = pct+'%';
+  el('dLog').textContent = (p.file? p.file+'\n':'') + (S.log||[]).slice(-6).join('\n');
+}
+
+async function refreshStatus(){
+  let s;
+  try{ s=await (await fetch('api/status')).json() }catch{ return }
+  const prevIdx=S.indexed;
+  S.ready=!!s.ready; S.error=s.error||''; S.info=s.info||{};
+  S.indexed=s.indexed||0; S.indexing=!!s.indexing;
+  S.progress=s.progress||{}; S.auto=s.auto||{}; S.log=s.log||[];
+  S.roots=s.roots||[];
+
+  // 顶部进度线
+  const running = S.indexing || (S.progress&&S.progress.total&&S.indexing);
+  el('pbar').classList.toggle('run', !!S.indexing);
+  if(!S.indexing){ el('pbar').querySelector('i').style.width = S.progress&&S.progress.total ? '100%' : '0' }
+  else { el('pbar').querySelector('i').style.width='' }
+
+  syncDrawer();
+
+  // 索引新增 → 刷新当前视图
+  if(S.view==='photos' && prevIdx!==S.indexed && !S.indexing){
+    if(S.wall.total!==S.indexed && S.wall.items.length<240){
+      clearTimeout(S._reload); S._reload=setTimeout(()=>loadWall(true), 900);
+    }
+  }
+  // 首屏：模型就绪后才载入照片墙
+  if(S.ready && !S._booted){
+    S._booted=true;
+    if(S.view==='photos') loadWall(true);
+  }
+  if(S.ready && !S._treeLoaded){ S._treeLoaded=true; loadTree(); }
+  if(S.ready && !S.roots.length && S.view==='photos' && S.wall.items.length===0){
+    el('main').innerHTML=`<div class="pagehead"><h1>照片</h1></div>
+      <div class="empty">
+        <div class="big">📷</div><h3>开始建立你的语义相册</h3>
+        <p>添加一个存放照片的文件夹，程序会在本机建立索引（不上传、不联网）。<br>
+           几秒钟后，你就能用一句话找到任意一张照片。</p>
+        <div class="row"><button class="btn pri" id="bootAdd">添加照片文件夹</button></div>
+      </div>`;
+    el('bootAdd').onclick=()=>{ openDrawer(true); setTimeout(()=>el('fInput').focus(),200) };
+  }
+}
+
+/* ==================== 无限滚动 ==================== */
+let IO=null;
+function observeSentinel(){
+  const s=el('sentinel'); if(!s) return;
+  if(!IO){
+    IO=new IntersectionObserver(es=>{
+      for(const e of es){
+        if(!e.isIntersecting) continue;
+        if(S.view==='photos') loadWall(false);
+        else if(S.view==='group'){ S.cat==='loose' ? loadLoose() : loadGroup() }
+      }
+    },{rootMargin:'900px'});
+  }
+  IO.disconnect();
+  IO.observe(s);
+}
+
+/* ==================== 路由 & 快捷键 ==================== */
+function fromHash(){
+  const h=location.hash.replace(/^#\/?/,'');
+  const [path,qs]=h.split('?');
+  const p=path.split('/').filter(Boolean);
+  const q=new URLSearchParams(qs||'');
+  if(p[0]==='g'&&p[1]){
+    S.cat=p[1]; S.key=decodeURIComponent(p[2]||''); S.title=q.get('t')||'';
+    S.view='group'; paintTabs(); renderGroup(true); return;
+  }
+  if(p[0]==='loose'){ S.view='group'; S.cat='loose'; paintTabs(); renderLoose(true); return }
+  if(p[0]==='search'){
+    S.query=q.get('q')||''; S.qkind=q.get('kind')||'all';
+    S.view='search'; paintTabs();
+    if(S.query) runSearch(S.query); else el('main').innerHTML=emptyHtml('输入一句话开始搜索','在右上角「搜索」里描述你想找的画面。','');
+    return;
+  }
+  if(['photos','moments','people','city','place','thing'].includes(p[0])) return go(p[0]);
+  go('photos');
+}
+addEventListener('hashchange',fromHash);
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(el('cfMask').classList.contains('on')) { el('cfNo').click(); return }
+    if(el('lb').classList.contains('on')) return closeLB();
+    if(el('drawer').classList.contains('on')) return openDrawer(false);
+    if(el('sPanel').classList.contains('on')) return openSearch(false);
+  }
+  if(e.key==='ArrowLeft' && el('lb').classList.contains('on')) stepLB(-1);
+  if(e.key==='ArrowRight' && el('lb').classList.contains('on')) stepLB(1);
+  if((e.key==='/'||(e.key==='k'&&(e.metaKey||e.ctrlKey))) && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){
+    e.preventDefault(); openSearch(true);
+  }
+});
+
+/* 灯箱 / 卡片点击 */
+document.addEventListener('click',e=>{
+  // 「不是他」优先：它嵌在 .ph 里，别被当成"打开大图"
+  const fx=e.target.closest('.fix');
+  if(fx){ e.preventDefault(); e.stopPropagation(); return fixFace(fx.dataset.path, +fx.dataset.fix) }
+  const ph=e.target.closest('.ph');
+  if(ph){ openLB(ph.dataset.path); }
+});
+
+/* ==================== 启动 ==================== */
+logoInit();
+function logoInit(){ document.title='语义相册' }
+el('main').innerHTML=`<div class="skel">${'<i></i>'.repeat(10)}</div>`;
+refreshStatus();
+setInterval(refreshStatus, 2500);
+setTimeout(()=>{ if(!S._booted && S.view==='photos'){ S._booted=true; loadWall(true) } }, 800);
+fromHash();
+</script>
+</body>
+</html>

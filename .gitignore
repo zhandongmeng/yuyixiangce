@@ -1,0 +1,35 @@
+# ---------- 构建产物（体积巨大，不入库）----------
+release/
+dist/
+build_pyi*/
+build_installer/
+*.spec
+
+# ---------- 模型权重 ----------
+# 只保留体积小的配置/词表，权重靠 README「模型从哪来」自己准备
+models/clip/*.onnx
+models/face/*.onnx
+models/whisper/*.bin
+models_src/
+ort_cpu/
+
+# ---------- 运行时数据 ----------
+data/
+_shots/
+dev.log
+*.log
+
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# ---------- 环境 / 编辑器 / 系统 ----------
+envs/
+.venv/
+venv/
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
